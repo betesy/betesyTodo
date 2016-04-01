@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html ng-app="todoModule">
+  <head>
+    <title>betesy待办事项</title>
+    <meta charset="utf-8"/>
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0"/>
+    <link rel='stylesheet' href='/lib/bootstrap/dist/css/bootstrap.css' />
+    <link rel="stylesheet" href="/font-awesome/css/font-awesome.css"/>
+  </head>
+  <body style="margin-top: 50px;" ng-controller="todoCtrl">
+    <div class="container">
+      <div class="jumbotron text-center">
+        <h1><label class="label label-info">你有个{{todos.length}}待办事项</label></h1>
+      </div>
+      <div class="row">
+        <div class="col-md-offset-4 col-md-4">
+          <p class="text-center" ng-show="loading">
+            <i class="fa fa fa-spinner fa-spin"></i>
+          </p>
+          <button class="btn btn-success" ng-click="selectAll()">全选</button>
+          <div class="checkbox" ng-repeat="todo in todos">
+            <label>
+              <input type="checkbox" ng-checked="checked" ng-click="isSelected(todo._id)"> {{todo.text}}
+              <span class="glyphicon glyphicon-minus" ng-click="delete(todo._id)"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+      
+      <div class="row">
+        <div class="col-md-offset-2 col-md-8 text-center">
+          <form>
+            <div class="form-group">
+              <label>新的事项</label>
+              <input type="text" id="text" class="form-control" ng-model="todo.text"/>
+            </div>
+            <div class="form-group">
+              <button class="btn btn-primary" ng-click="addTodo()">增加</button>
+              <button class="btn btn-primary" ng-click="batchDelete()">批量删除</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+    </div>
+  </body>
+  <script src="/lib/jquery/dist/jquery.js"></script>
+  <script src="/lib/bootstrap/dist/js/bootstrap.js"></script>
+  <script src="/lib/angular/angular.js"></script>
+  <script>
+    angular.module('todoModule',[]);
+    //封装服务
+    angular.module('todoModule').factory('todoService',function($http){
+      return {
+        list:function(){//列出所有
+          return $http.get('/todos');
+        },
+        add:function(data){//增加
+          //把data放在请求体里
+          return $http.post('/todos',data);
+        },
+        delete:function(id){//单个删除
+          //id是要删除的id号
+          return $http.delete('/todos/'+id);
+        },
+        batchDelete:function(data){
+          return $http.post('/todos/delete',data);
+        }
+      }
+    });
+    angular.module('todoModule').controller('todoCtrl',function($scope,todoService){
+      $scope.loading = true;
+      //请求服务器所有的待办事项，返回一个promise
+      todoService.list().success(function(todos){
+        $scope.todos = todos;
+        $scope.loading = false;
+      });
+      //$scope.todos = [{_id:1,text:'买宝马'},{_id:2,text:'买幻影'}];
+      $scope.todo = {};
+      $scope.selected = [];
+      $scope.checked = 0;//未选中
+      $scope.addTodo = function(){
+        $scope.loading = true;
+        //保存新的事项
+        todoService.add($scope.todo).success(function(todo){
+          $scope.todos.push(todo);
+          $scope.todo = {};
+          $scope.loading = false;
+        });
+      };
+      $scope.delete = function(id){
+        $scope.loading = true;
+        todoService.delete(id).success(function(data){
+          $scope.todos = $scope.todos.filter(function(todo){
+            return todo._id != id;
+            $scope.loading = false;
+          });
+        });
+      };
+
+      $scope.isSelected = function(id){
+        //按照索引删除
+        var index = $scope.selected.indexOf(id);
+        if(index>=0){
+          $scope.selected.splice(index,1);
+        }else{
+          $scope.selected.push(id);
+        }
+      };
+      $scope.batchDelete = function(){
+        todoService.batchDelete($scope.selected).success(function(){
+          $scope.todos = $scope.todos.filter(function(todo){
+            return $scope.selected.indexOf(todo._id) == -1;
+          });
+        });
+      };
+
+      $scope.selectAll = function(){
+        $scope.checked = $scope.checked?0:1;
+        //console.log($scope.checked);
+        //清空要删除的ID列表
+        $scope.selected.length = 0;
+        //如果是全选的话，要把所有的ID全部添加到删除的ID列表中
+        if($scope.checked){
+          $scope.todos.forEach(function(todo){
+            $scope.selected.push(todo._id);
+          });
+        }
+
+      };
+    });
+  </script>
+</html>
